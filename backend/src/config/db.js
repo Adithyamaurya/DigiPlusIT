@@ -14,6 +14,10 @@ let pgliteInstance = null;
 let isUsingPglite = false;
 
 export async function initDb() {
+  if (pool || pgliteInstance) {
+    return;
+  }
+
   const databaseUrl = process.env.DATABASE_URL;
 
   if (databaseUrl && !databaseUrl.includes('pglite')) {
@@ -40,14 +44,53 @@ export async function initDb() {
     }
   } else {
     isUsingPglite = true;
-    const dataDir = path.resolve(__dirname, '../../data/contextflow_pg');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    const isVercel = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+    const dataDir = isVercel
+      ? '/tmp/contextflow_pg'
+      : path.resolve(__dirname, '../../data/contextflow_pg');
+
+    logger.info({ mode: 'pglite_postgres', path: dataDir }, 'Initializing PostgreSQL engine (PGlite)...');
+    try {
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      pgliteInstance = new PGlite(dataDir);
+      await pgliteInstance.waitReady;
+      logger.info('Persistent PostgreSQL engine (PGlite) ready.');
+    } catch (err) {
+      logger.warn({ err: err.message }, 'Failed to initialize persistent directory for PGlite, falling back to in-memory instance');
+      pgliteInstance = new PGlite();
+      await pgliteInstance.waitReady;
+      logger.info('In-memory PostgreSQL engine (PGlite) ready.');
     }
-    logger.info({ mode: 'pglite_local_postgres', path: dataDir }, 'Initializing local persistent PostgreSQL engine (PGlite)...');
-    pgliteInstance = new PGlite(dataDir);
-    await pgliteInstance.waitReady;
-    logger.info('Local PostgreSQL engine (PGlite) ready.');
+  }
+}
+
+export async function ensureDbInitialized() {
+  if (!pool && !pgliteInstance) {
+    await initDb();
+  }
+
+  try {
+    const check = await query("SELECT to_regclass('public.users') as tbl");
+    if (!check.rows[0] || !check.rows[0].tbl) {
+      logger.info('Database schema missing. Automatically running migrations and seeding demonstration data...');
+      const { runMigrations } = await import('../scripts/migrate.js');
+      await runMigrations();
+      const { seedDatabase } = await import('../scripts/seed.js');
+      await seedDatabase();
+      logger.info('Auto-migration and demo seeding complete!');
+    } else {
+      // Check if context graph tables exist (migration 003)
+      const checkGraph = await query("SELECT to_regclass('public.context_events') as tbl");
+      if (!checkGraph.rows[0] || !checkGraph.rows[0].tbl) {
+        logger.info('Context graph tables missing. Running migrations...');
+        const { runMigrations } = await import('../scripts/migrate.js');
+        await runMigrations();
+      }
+    }
+  } catch (err) {
+    logger.error({ err: err.message }, 'Error checking/running auto-initialization');
   }
 }
 
@@ -139,6 +182,7 @@ export default {
   query,
   exec,
   initDb,
+  ensureDbInitialized,
   getClient,
   transaction,
   get isPglite() { return isUsingPglite; }

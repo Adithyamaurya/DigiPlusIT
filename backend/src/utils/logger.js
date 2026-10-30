@@ -5,18 +5,22 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const logDir = path.resolve(__dirname, '../../logs');
-
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
+let logFileStream = null;
+try {
+  const isVercel = Boolean(process.env.VERCEL);
+  const logDir = isVercel ? '/tmp/logs' : path.resolve(__dirname, '../../logs');
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+  const logFilePath = path.join(logDir, 'app.log');
+  logFileStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+} catch (err) {
+  // Graceful fallback on read-only environments
 }
 
-const logFilePath = path.join(logDir, 'app.log');
-const logFileStream = fs.createWriteStream(logFilePath, { flags: 'a' });
-
-// Create Pino instance with dual stream: pretty to console, structured JSON to file
+// Create Pino instance with dual stream: pretty to console, structured JSON to file if writable
 const streams = [
-  { stream: logFileStream },
+  ...(logFileStream ? [{ stream: logFileStream }] : []),
   { stream: process.stdout }
 ];
 

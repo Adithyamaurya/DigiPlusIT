@@ -21,25 +21,34 @@ app.use(express.json({ limit: '10mb' }));
 app.use(correlationIdMiddleware);
 app.use(requestLogger);
 
-// Health check
-app.get('/api/health', (req, res) => {
+// Health & Root check (support both /api/health and /health)
+const healthHandler = (req, res) => {
   res.json({
     status: 'ok',
     service: 'ContextFlow Backend',
     timestamp: new Date().toISOString(),
     requestId: req.id
   });
+};
+
+app.get(['/api/health', '/health'], healthHandler);
+app.get(['/api', '/'], (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'ContextFlow API Serverless',
+    version: '1.0.0'
+  });
 });
 
-// Resource Routes
-app.use('/api/projects', projectRoutes);
-app.use('/api/meetings', meetingRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/work-transfers', workTransferRoutes);
-app.use('/api/documents', knowledgeRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/users', userRoutes);
+// Resource Routes (support both /api/resource and /resource)
+app.use(['/api/projects', '/projects'], projectRoutes);
+app.use(['/api/meetings', '/meetings'], meetingRoutes);
+app.use(['/api/tasks', '/tasks'], taskRoutes);
+app.use(['/api/work-transfers', '/work-transfers'], workTransferRoutes);
+app.use(['/api/documents', '/documents'], knowledgeRoutes);
+app.use(['/api/ai', '/ai'], aiRoutes);
+app.use(['/api/dashboard', '/dashboard'], dashboardRoutes);
+app.use(['/api/users', '/users'], userRoutes);
 
 // 404 Handler
 app.use((req, res) => {
@@ -60,14 +69,12 @@ app.use((err, req, res, next) => {
     stack: err.stack
   });
 
-  const statusCode = err.status || err.statusCode || 500;
-  res.status(statusCode).json({
+  res.status(err.status || 500).json({
     success: false,
-    code: err.code || 'INTERNAL_ERROR',
-    error: err.message || 'An unexpected internal server error occurred',
+    error: err.message || 'Internal server error occurred',
+    code: err.code || 'SERVER_ERROR',
     requestId: req.id
   });
 });
 
 export default app;
-

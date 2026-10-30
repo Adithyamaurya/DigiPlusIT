@@ -25,10 +25,19 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    if (typeof response.data === 'string' && (response.data.includes('<!doctype html') || response.data.includes('<!DOCTYPE html') || response.data.includes('<html'))) {
+      return Promise.reject({
+        message: 'Endpoint returned HTML instead of JSON. The backend serverless handler may be unreachable or restarting.',
+        code: 'HTML_RESPONSE_ERROR',
+        status: 200,
+      });
+    }
+    return response.data;
+  },
   (error) => {
     const errorData = error.response?.data || {};
-    const message = errorData.error || error.message || 'An unexpected error occurred';
+    const message = (typeof errorData === 'object' && errorData.error) ? errorData.error : error.message || 'An unexpected error occurred';
     const code = errorData.code || 'UNKNOWN_ERROR';
     return Promise.reject({ message, code, status: error.response?.status, raw: error });
   }

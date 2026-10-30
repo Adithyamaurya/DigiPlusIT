@@ -39,8 +39,10 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
       const res = await DashboardAPI.getStats();
-      if (res.success) {
+      if (res?.success && res.data) {
         setData(res.data);
+      } else {
+        setError(res?.error || 'Failed to retrieve workspace metrics');
       }
     } catch (err) {
       setError(err.message || 'Failed to load dashboard metrics');
@@ -71,6 +73,10 @@ export default function Dashboard() {
         </button>
       </div>
     );
+  }
+
+  if (!data) {
+    return <LoadingSpinner message="Aggregating workspace intelligence & continuity metrics..." size="lg" />;
   }
 
   const { stats, taskDistribution, upcomingDeadlines, recentMeetings, recentTransfers, projectHealth } = data;

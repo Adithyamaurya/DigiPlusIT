@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { exec, initDb } from '../config/db.js';
 import logger from '../utils/logger.js';
+import { MIGRATIONS } from './migrationsData.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,17 +16,32 @@ export async function runMigrations() {
   await initDb();
 
   const migrationsDir = path.resolve(__dirname, '../../migrations');
-  const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+  let migrationItems = [];
 
-  for (const file of files) {
-    const migrationFile = path.join(migrationsDir, file);
-    logger.info({ file }, `Applying migration: ${file}`);
-    const sql = fs.readFileSync(migrationFile, 'utf-8');
+  if (fs.existsSync(migrationsDir)) {
     try {
-      await exec(sql);
-      logger.info({ file }, `Applied migration: ${file}`);
+      const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+      for (const file of files) {
+        const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
+        migrationItems.push({ name: file, sql });
+      }
+    } catch (e) {
+      logger.warn({ err: e.message }, 'Could not read migrations directory, using embedded migrations');
+    }
+  }
+
+  // Fallback to embedded migrations if no files found on disk
+  if (migrationItems.length === 0) {
+    migrationItems = MIGRATIONS;
+  }
+
+  for (const item of migrationItems) {
+    logger.info({ file: item.name }, `Applying migration: ${item.name}`);
+    try {
+      await exec(item.sql);
+      logger.info({ file: item.name }, `Applied migration: ${item.name}`);
     } catch (error) {
-      logger.error({ file, error: error.message }, 'Migration step failed!');
+      logger.error({ file: item.name, error: error.message }, 'Migration step failed!');
       throw error;
     }
   }
