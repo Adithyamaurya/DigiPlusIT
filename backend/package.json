@@ -1,0 +1,28 @@
+{
+  "name": "contextflow-backend",
+  "version": "1.0.0",
+  "description": "ContextFlow AI-Powered Knowledge & Task Management Platform Backend",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/scripts/migrate.js",
+    "seed": "node src/scripts/seed.js"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.2.14",
+    "@google/generative-ai": "^0.21.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.1",
+    "pino": "^9.6.0",
+    "pino-http": "^10.4.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.0.0"
+  }
+}
