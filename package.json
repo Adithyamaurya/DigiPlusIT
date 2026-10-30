@@ -4,17 +4,13 @@
   "description": "ContextFlow - AI-Powered Knowledge & Task Management Platform",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "frontend",
-    "backend"
-  ],
   "scripts": {
     "migrate": "npm --prefix backend run migrate",
     "seed": "npm --prefix backend run seed",
     "server": "npm --prefix backend run start",
     "backend": "npm --prefix backend run dev",
     "frontend": "npm --prefix frontend run dev",
-    "build": "npm --prefix frontend run build"
+    "build": "cd frontend && npm run build"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.2.14",

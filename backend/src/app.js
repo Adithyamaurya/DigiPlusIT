@@ -3,6 +3,7 @@ import cors from 'cors';
 import correlationIdMiddleware from './middleware/correlationId.js';
 import requestLogger from './middleware/requestLogger.js';
 import { logError } from './utils/logger.js';
+import { ensureDbInitialized } from './config/db.js';
 
 import projectRoutes from './routes/projectRoutes.js';
 import meetingRoutes from './routes/meetingRoutes.js';
@@ -15,11 +16,32 @@ import userRoutes from './routes/userRoutes.js';
 
 const app = express();
 
-// Middleware
+// Global Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(correlationIdMiddleware);
 app.use(requestLogger);
+
+// Database auto-initialization middleware (handles cold starts in serverless and standard runs)
+let dbReady = false;
+let dbInitPromise = null;
+
+app.use(async (req, res, next) => {
+  if (!dbReady) {
+    if (!dbInitPromise) {
+      dbInitPromise = ensureDbInitialized()
+        .then(() => {
+          dbReady = true;
+        })
+        .catch((err) => {
+          console.error('DB auto-initialization error:', err);
+          dbReady = true;
+        });
+    }
+    await dbInitPromise;
+  }
+  next();
+});
 
 // Health & Root check (support both /api/health and /health)
 const healthHandler = (req, res) => {
@@ -35,7 +57,7 @@ app.get(['/api/health', '/health'], healthHandler);
 app.get(['/api', '/'], (req, res) => {
   res.json({
     status: 'ok',
-    service: 'ContextFlow API Serverless',
+    service: 'ContextFlow API Fullstack',
     version: '1.0.0'
   });
 });
