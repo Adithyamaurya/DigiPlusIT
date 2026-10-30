@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "ContextFlow - AI-Powered Knowledge & Task Management Platform",
   "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
     "migrate": "npm --prefix backend run migrate",
     "seed": "npm --prefix backend run seed",
